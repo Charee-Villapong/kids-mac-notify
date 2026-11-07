@@ -23,31 +23,35 @@ def load_config():
         return json.load(f)
 
 
-def show_dialog(title, message):
+# AppleScript 冒頭部: 文面はスクリプトに直書きせず環境変数経由で受け取る
+_ENV_PREAMBLE = (
+    'set t to system attribute "KIDS_TITLE"\n'
+    'set m to system attribute "KIDS_MSG"\n'
+)
+
+
+def _run_osascript(title, message, script, timeout, error_label):
+    """osascript 実行の共通処理（環境変数の受け渡し＋例外時ログ）。"""
     env = dict(os.environ, KIDS_TITLE=title, KIDS_MSG=message)
-    script = (
-        'set t to system attribute "KIDS_TITLE"\n'
-        'set m to system attribute "KIDS_MSG"\n'
+    try:
+        subprocess.run(["/usr/bin/osascript", "-e", script], env=env, timeout=timeout)
+    except Exception as e:
+        print(f"{error_label} error: {e}", flush=True)
+
+
+def show_dialog(title, message):
+    script = _ENV_PREAMBLE + (
         'display dialog m with title t buttons {"OK"} default button "OK" '
         'with icon caution giving up after 120'
     )
-    try:
-        subprocess.run(["/usr/bin/osascript", "-e", script], env=env, timeout=130)
-    except Exception as e:
-        print(f"dialog error: {e}", flush=True)
+    _run_osascript(title, message, script, timeout=130, error_label="dialog")
 
 
 def show_notification(title, message):
-    env = dict(os.environ, KIDS_TITLE=title, KIDS_MSG=message)
-    script = (
-        'set t to system attribute "KIDS_TITLE"\n'
-        'set m to system attribute "KIDS_MSG"\n'
+    script = _ENV_PREAMBLE + (
         'display notification m with title t sound name "Glass"'
     )
-    try:
-        subprocess.run(["/usr/bin/osascript", "-e", script], env=env, timeout=10)
-    except Exception as e:
-        print(f"notification error: {e}", flush=True)
+    _run_osascript(title, message, script, timeout=10, error_label="notification")
 
 
 def speak(message, voice):

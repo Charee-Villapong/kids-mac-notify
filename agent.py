@@ -20,6 +20,15 @@ CONFIG_PATH = os.path.join(BASE, "config.json")
 # 接続先（ntfy.sh）のベースURL。購読URLはここから組み立てる
 NTFY_BASE_URL = "https://ntfy.sh"
 
+# 時間系の値（単位はすべて秒）
+DIALOG_GIVING_UP_SEC = 120  # ダイアログの表示上限
+# ダイアログの実行タイムアウトは表示上限とペア: 上限より少し長く取る
+DIALOG_TIMEOUT_SEC = DIALOG_GIVING_UP_SEC + 10
+NOTIFICATION_TIMEOUT_SEC = 10  # 通知の実行タイムアウト
+SAY_TIMEOUT_SEC = 60  # 読み上げの実行タイムアウト
+BACKOFF_INITIAL_SEC = 3  # 再接続バックオフの初期値（接続成功でここに戻る）
+BACKOFF_MAX_SEC = 60  # 再接続バックオフの上限（倍々でここまで）
+
 
 def load_config():
     with open(CONFIG_PATH, "r", encoding="utf-8") as f:
@@ -45,25 +54,32 @@ def _run_osascript(title, message, script, timeout, error_label):
 def show_dialog(title, message):
     script = _ENV_PREAMBLE + (
         'display dialog m with title t buttons {"OK"} default button "OK" '
-        'with icon caution giving up after 120'
+        f'with icon caution giving up after {DIALOG_GIVING_UP_SEC}'
     )
-    _run_osascript(title, message, script, timeout=130, error_label="dialog")
+    _run_osascript(
+        title, message, script, timeout=DIALOG_TIMEOUT_SEC, error_label="dialog"
+    )
 
 
 def show_notification(title, message):
     script = _ENV_PREAMBLE + (
         'display notification m with title t sound name "Glass"'
     )
-    _run_osascript(title, message, script, timeout=10, error_label="notification")
+    _run_osascript(
+        title, message, script, timeout=NOTIFICATION_TIMEOUT_SEC,
+        error_label="notification",
+    )
 
 
 def speak(message, voice):
     if not voice:
         return
     try:
-        r = subprocess.run(["/usr/bin/say", "-v", voice, message], timeout=60)
+        r = subprocess.run(
+            ["/usr/bin/say", "-v", voice, message], timeout=SAY_TIMEOUT_SEC
+        )
         if r.returncode != 0:
-            subprocess.run(["/usr/bin/say", message], timeout=60)
+            subprocess.run(["/usr/bin/say", message], timeout=SAY_TIMEOUT_SEC)
     except Exception as e:
         print(f"say error: {e}", flush=True)
 
@@ -117,17 +133,17 @@ def main():
     topic = cfg["topic"]
     url = f"{NTFY_BASE_URL}/{topic}/json"
     print(f"Start listening: {topic}", flush=True)
-    backoff = 3
+    backoff = BACKOFF_INITIAL_SEC
     while True:
         try:
             req = urllib.request.Request(url, headers={"User-Agent": "kids-notify/1.0"})
             with urllib.request.urlopen(req, timeout=None) as resp:
-                backoff = 3
+                backoff = BACKOFF_INITIAL_SEC
                 _process_stream(resp, cfg)
         except Exception as e:
             print(f"connection error: {e} (retry in {backoff}s)", flush=True)
             time.sleep(backoff)
-            backoff = min(backoff * 2, 60)
+            backoff = min(backoff * 2, BACKOFF_MAX_SEC)
 
 
 if __name__ == "__main__":

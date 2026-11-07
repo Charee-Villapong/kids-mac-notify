@@ -17,6 +17,9 @@ import urllib.request
 BASE = os.path.dirname(os.path.abspath(__file__))
 CONFIG_PATH = os.path.join(BASE, "config.json")
 
+# 接続先（ntfy.sh）のベースURL。購読URLはここから組み立てる
+NTFY_BASE_URL = "https://ntfy.sh"
+
 
 def load_config():
     with open(CONFIG_PATH, "r", encoding="utf-8") as f:
@@ -112,7 +115,7 @@ def _process_stream(resp, cfg):
 def main():
     cfg = load_config()
     topic = cfg["topic"]
-    url = f"https://ntfy.sh/{topic}/json"
+    url = f"{NTFY_BASE_URL}/{topic}/json"
     print(f"Start listening: {topic}", flush=True)
     backoff = 3
     while True:

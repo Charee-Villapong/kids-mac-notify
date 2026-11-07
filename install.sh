@@ -18,6 +18,9 @@ else
 EOF
 fi
 
+# 接続先（ntfy.sh）のURLはここで一元的に組み立てる
+NTFY_URL="https://ntfy.sh/$TOPIC"
+
 cp agent.py "$APP_DIR/agent.py"
 
 cat > "$PLIST" <<EOF
@@ -48,9 +51,9 @@ echo " セットアップ完了！"
 echo " 送信先トピック: $TOPIC"
 echo "=========================================="
 echo " テスト送信（このMacの別ターミナル or 親のスマホから）:"
-echo " curl -d '声でかいよ〜 ちょっと静かにして' -H 'Title: おうちから' https://ntfy.sh/$TOPIC"
+echo " curl -d '声でかいよ〜 ちょっと静かにして' -H 'Title: おうちから' $NTFY_URL"
 echo ""
 echo " このトピック名は合言葉です。スクショを Muse のチャットに送ってください。"
 echo " Muse から直接送れるように登録します。"
 sleep 2
-curl -s -d 'セットアップできたよ！この通知が見えたら成功' -H 'Title: おうちから' "https://ntfy.sh/$TOPIC" >/dev/null || true
+curl -s -d 'セットアップできたよ！この通知が見えたら成功' -H 'Title: おうちから' "$NTFY_URL" >/dev/null || true

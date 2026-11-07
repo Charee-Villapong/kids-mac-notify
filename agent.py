@@ -65,6 +65,27 @@ def speak(message, voice):
         print(f"say error: {e}", flush=True)
 
 
+def _split_notify_only(message):
+    """先頭のモード指定を取り除く。
+
+    NOTIFY: = 通知のみ / それ以外 = ダイアログ+通知+読み上げ。
+    (通知のみかどうか, 接頭辞を取り除いた本文) を返す。
+    """
+    if message.upper().startswith("NOTIFY:"):
+        return True, message[7:].strip()
+    return False, message
+
+
+def _dispatch(title, message, notify_only, cfg):
+    """ログを出して、通知→読み上げ→ダイアログの順に振り分ける。"""
+    print(f"[{time.strftime('%H:%M:%S')}] {title}: {message}", flush=True)
+    show_notification(title, message)
+    if cfg.get("speak", True) and not notify_only:
+        speak(message, cfg.get("voice", "Kyoko"))
+    if not notify_only:
+        show_dialog(title, message)
+
+
 def handle(data, cfg):
     if data.get("event") != "message":
         return
@@ -72,17 +93,8 @@ def handle(data, cfg):
     message = (data.get("message") or "").strip()
     if not message:
         return
-    # 先頭のモード指定: NOTIFY: = 通知のみ / それ以外 = ダイアログ+通知+読み上げ
-    notify_only = False
-    if message.upper().startswith("NOTIFY:"):
-        notify_only = True
-        message = message[7:].strip()
-    print(f"[{time.strftime('%H:%M:%S')}] {title}: {message}", flush=True)
-    show_notification(title, message)
-    if cfg.get("speak", True) and not notify_only:
-        speak(message, cfg.get("voice", "Kyoko"))
-    if not notify_only:
-        show_dialog(title, message)
+    notify_only, message = _split_notify_only(message)
+    _dispatch(title, message, notify_only, cfg)
 
 
 def _process_stream(resp, cfg):

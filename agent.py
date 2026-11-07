@@ -85,6 +85,18 @@ def handle(data, cfg):
         show_dialog(title, message)
 
 
+def _process_stream(resp, cfg):
+    """購読ストリームの各行を JSON として解釈し handle() へ渡す。"""
+    for raw in resp:
+        line = raw.decode("utf-8", "ignore").strip()
+        if not line:
+            continue
+        try:
+            handle(json.loads(line), cfg)
+        except Exception as e:
+            print(f"parse error: {e}", flush=True)
+
+
 def main():
     cfg = load_config()
     topic = cfg["topic"]
@@ -96,14 +108,7 @@ def main():
             req = urllib.request.Request(url, headers={"User-Agent": "kids-notify/1.0"})
             with urllib.request.urlopen(req, timeout=None) as resp:
                 backoff = 3
-                for raw in resp:
-                    line = raw.decode("utf-8", "ignore").strip()
-                    if not line:
-                        continue
-                    try:
-                        handle(json.loads(line), cfg)
-                    except Exception as e:
-                        print(f"parse error: {e}", flush=True)
+                _process_stream(resp, cfg)
         except Exception as e:
             print(f"connection error: {e} (retry in {backoff}s)", flush=True)
             time.sleep(backoff)

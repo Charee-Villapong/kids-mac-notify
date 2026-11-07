@@ -29,6 +29,13 @@ SAY_TIMEOUT_SEC = 60  # 読み上げの実行タイムアウト
 BACKOFF_INITIAL_SEC = 3  # 再接続バックオフの初期値（接続成功でここに戻る）
 BACKOFF_MAX_SEC = 60  # 再接続バックオフの上限（倍々でここまで）
 
+# 文面・モード指定・デフォルト値
+DEFAULT_TITLE = "おうちから"  # 件名が無いときのデフォルト
+DEFAULT_VOICE = "Kyoko"  # 読み上げ音声のデフォルト（config の voice 省略時）
+NOTIFICATION_SOUND = "Glass"  # 通知音
+NOTIFY_ONLY_PREFIX = "NOTIFY:"  # 通知のみモードの接頭辞
+USER_AGENT = "kids-notify/1.0"  # 購読リクエストの User-Agent
+
 
 def load_config():
     with open(CONFIG_PATH, "r", encoding="utf-8") as f:
@@ -63,7 +70,7 @@ def show_dialog(title, message):
 
 def show_notification(title, message):
     script = _ENV_PREAMBLE + (
-        'display notification m with title t sound name "Glass"'
+        f'display notification m with title t sound name "{NOTIFICATION_SOUND}"'
     )
     _run_osascript(
         title, message, script, timeout=NOTIFICATION_TIMEOUT_SEC,
@@ -90,8 +97,8 @@ def _split_notify_only(message):
     NOTIFY: = 通知のみ / それ以外 = ダイアログ+通知+読み上げ。
     (通知のみかどうか, 接頭辞を取り除いた本文) を返す。
     """
-    if message.upper().startswith("NOTIFY:"):
-        return True, message[7:].strip()
+    if message.upper().startswith(NOTIFY_ONLY_PREFIX):
+        return True, message[len(NOTIFY_ONLY_PREFIX):].strip()
     return False, message
 
 
@@ -100,7 +107,7 @@ def _dispatch(title, message, notify_only, cfg):
     print(f"[{time.strftime('%H:%M:%S')}] {title}: {message}", flush=True)
     show_notification(title, message)
     if cfg.get("speak", True) and not notify_only:
-        speak(message, cfg.get("voice", "Kyoko"))
+        speak(message, cfg.get("voice", DEFAULT_VOICE))
     if not notify_only:
         show_dialog(title, message)
 
@@ -108,7 +115,7 @@ def _dispatch(title, message, notify_only, cfg):
 def handle(data, cfg):
     if data.get("event") != "message":
         return
-    title = data.get("title") or "おうちから"
+    title = data.get("title") or DEFAULT_TITLE
     message = (data.get("message") or "").strip()
     if not message:
         return
@@ -136,7 +143,7 @@ def main():
     backoff = BACKOFF_INITIAL_SEC
     while True:
         try:
-            req = urllib.request.Request(url, headers={"User-Agent": "kids-notify/1.0"})
+            req = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
             with urllib.request.urlopen(req, timeout=None) as resp:
                 backoff = BACKOFF_INITIAL_SEC
                 _process_stream(resp, cfg)
